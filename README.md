@@ -1,4 +1,8 @@
 # Juice-Unreleased
+### Planned Features:
+* Also download lyrics to txt
+* Maybe download album art, I'd prefer if it were just a random photo of Jarad, it would be easier than looking for specific images for the album covers as most of them are fan made.
+* Add format for subsonic server.
 ## Requirements:
 * python
 * pip
