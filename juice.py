@@ -18,76 +18,77 @@ import os
 import youtube_dl
 import json
 from pathlib import Path
+import threading
 
-file = open("input.txt", "r")
+thr = None
+totalTracks = None
+currentTrack = None
 
-totalTracks = -1
-currentTrack = 0
+def count():
+  file = open("input.txt", "r")
+  totalTracks = 0
+  currentTrack = 0
 
-for line in file:
+  for line in file:
     if line != "\n":
-        totalTracks += 1
-file.close()
+      totalTracks += 1
+  file.close()
 
-file = open("input.txt", "r")
+def download(url, song):
+        track_data = 'songs/data/' + song + '.json'
+        data_file = open(track_data, 'r')
+        data = json.load(data_file)
+        print ("Downloading video... (" + song  + "): " + url)
+        ydl_opts = {
+	    'format': 'bestaudio/best',
+	    'postprocessors': [{
+	      'key': 'FFmpegExtractAudio',
+	      'preferredcodec': 'mp3',
+	      'preferredquality': '192',
+	    }],
+        }
 
-with file as f:
-  for line in f:
-    track_name = line.strip()
-    #TODO: allow the artists name to be change in the command prompt with 'python juice.py <source> <artist>'
-    title_format = 'Juice WRLD' + ' - '
-    title = title_format + track_name 
-    track_data = 'songs/data/' + title + '.json'
-    path = Path(track_data)
-    if path.is_file():
-        print('File already exists, skipping: ' + title)
-    else:
-        print("File doesn't exist, scraping data...")
-        video_search = VideosSearch(title, limit = 1)
-        with open(track_data, 'w') as data_file:
-            json.dump(video_search.result(), data_file)
-            data_file.close()
-            print('Download complete... ' + track_data)
-file.close()
+        with youtube_dl.YoutubeDL(ydl_opts) as ytdl:
+           info_dict = ytdl.extract_info(url, download=False)
+           video_title = info_dict.get('title', None)
+           print('Starting download for: ' + video_title)
+           path = f'songs/mp3s/{song}.mp3'
+           ydl_opts.update({'outtmpl':path})
 
-file = open("input.txt", "r")
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+           ydl.download([url])
+           print('Finished download: ' + song + '.mp3')
 
-with file as f:
-  for line in f:
-    track_name = 'Juice WRLD' + ' - ' + line.strip()
-    track_data = 'songs/data/' + track_name
-    data_file = open(track_data, 'r')
-    data = json.load(data_file)
-    msg_deliver = 'Loading track ('
-    msg_divider = '/'
-    msg_end = '): '
-    print (msg_deliver + str(currentTrack) + msg_divider + str(totalTracks) + msg_end  + track_name)
-    url = data['result'][0]['link']
-    print ("Downloading video (" + track_name  + "): " + url)
+def scan_input():
+    file = open("input.txt", "r")
+    print('Checking for song data...')
+    with file as f:
+      for line in f:
+        track_name = line.strip()
+        #TODO: allow the artists name to be change in the command prompt with 'python juice.py <source> <artist>'
+        title_format = 'Juice WRLD' + ' - '
+        title = title_format + track_name
+        track_data = 'songs/data/' + title + '.json'
+        path = Path(track_data)
+        if path.is_file():
+            data = json.load(open(track_data, 'r'))
+            url = data['result'][0]['link']
+            thr = threading.Thread(target=download, args=(url, title), kwargs={})
+            thr.start()
+        else:
+            print("File doesn't exist, scraping data...")
+            video_search = VideosSearch(title, limit = 1)
+            with open(track_data, 'w') as data_file:
+              json.dump(video_search.result(), data_file)
+              data_file.close()
+              print('Scrape complete. ' + track_data)
+    file.close()
 
-    currentTrack += 1
+def main():
+    print('Juicing up...')
+    count()
+    scan_input()
+    print("We're done. Jam out.")
 
-    ydl_opts = {
-	'format': 'bestaudio/best',
-	'postprocessors': [{
-	  'key': 'FFmpegExtractAudio',
-	  'preferredcodec': 'mp3',
-	  'preferredquality': '192',
-	}],
-    }
-
-    with youtube_dl.YoutubeDL(ydl_opts) as ytdl:
-       info_dict = ytdl.extract_info(url, download=False)
-       video_title = info_dict.get('title', None)
-       print('Downloading... ' + video_title)
-       path = f'songs/mp3s/{track_name}.mp3'
-       ydl_opts.update({'outtmpl':path})
-
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-    innerFile.close()
-
-    if 'str' in line:
-       break;
-file.close()
+if __name__ == "__main__":
+    main()
